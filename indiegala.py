@@ -103,13 +103,13 @@ else:
 
 
 def get_games_dir():
-    return _cfg().get('games_dir') or _DEFAULT_GAMES_DIR
+    from runners.installdir import get_install_dir
+    return get_install_dir('indiegala', _DEFAULT_GAMES_DIR)
 
 
 def set_games_dir(path):
-    cfg = _cfg()
-    cfg['games_dir'] = path
-    _save_cfg(cfg)
+    from runners.installdir import set_install_dir
+    set_install_dir('indiegala', path)
 
 
 # ── Install detection ────────────────────────────────────────────────────────────
@@ -693,7 +693,12 @@ def _maybe_unzip(game_dir):
         zpath = os.path.join(game_dir, fname)
         try:
             with zipfile.ZipFile(zpath) as zf:
-                for member in zf.infolist():
+                infolist = zf.infolist()
+                from runners.diskspace import check_disk_space
+                from runners.installdir import check_writable
+                check_writable(game_dir)
+                check_disk_space(game_dir, sum(m.file_size for m in infolist))
+                for member in infolist:
                     # Normalize Windows backslashes to forward slashes
                     normalized = member.filename.replace('\\', '/')
                     dest = os.path.join(game_dir, normalized)

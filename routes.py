@@ -56,40 +56,15 @@ def sync_status():
     return jsonify(get_sync_state())
 
 
-@bp.route('/games-dir', methods=['GET'])
-def get_games_dir():
-    from .indiegala import get_games_dir as _get
-    return jsonify({'path': _get()})
-
-
-@bp.route('/games-dir-info')
-def games_dir_info():
-    from .indiegala import get_games_dir as _get
-    return jsonify({'text': _get()})
-
-
-@bp.route('/games-dir', methods=['POST'])
-def set_games_dir():
-    from .indiegala import set_games_dir as _set
+def _on_games_dir_change(path):
     from .watcher import start_indiegala_watcher, stop_indiegala_watcher
-    data = request.get_json(silent=True) or {}
-    path = (data.get('path') or '').strip()
-    if not path:
-        return jsonify({'error': 'No path provided'}), 400
-    _set(path)
     stop_indiegala_watcher()
     start_indiegala_watcher(path)
-    return jsonify({'status': 'ok', 'path': path})
 
 
-@bp.route('/open-folder', methods=['POST'])
-def open_folder():
-    from .indiegala import get_games_dir as _get, _open_folder
-    import os
-    path = _get()
-    os.makedirs(path, exist_ok=True)
-    _open_folder(path)
-    return jsonify({'status': 'ok'})
+from runners.installdir import register_install_dir_routes
+from .indiegala import _DEFAULT_GAMES_DIR
+register_install_dir_routes(bp, 'indiegala', _DEFAULT_GAMES_DIR, on_change=_on_games_dir_change)
 
 
 @bp.route('/scan', methods=['POST'])
