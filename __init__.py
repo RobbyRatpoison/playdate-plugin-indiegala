@@ -54,6 +54,12 @@ class IndieGalaPlugin:
             'store_label':    'View on IndieGala ↗',
             'appid_label':    'IndieGala ID:',
             'sync_label':     'Sync IndieGala Data',
+            'executable_candidates_url': '/api/indiegala/executable-candidates/{appid}',
+            'set_executable_url':        '/api/indiegala/set-executable/{appid}',
+            'context_menu_items': [
+                {'label': 'Change Executable', 'icon': '🎯', 'action_type': 'call',
+                 'js_fn': '_indiegalaChangeExecutable', 'visible_if': 'installed'},
+            ],
         }
 
     def manage_ui(self):

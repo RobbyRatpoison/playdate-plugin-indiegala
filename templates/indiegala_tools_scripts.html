@@ -1,3 +1,7 @@
+function _indiegalaChangeExecutable(appid) {
+    if (typeof pickExecutableForGame === 'function') pickExecutableForGame('indiegala', appid, null);
+}
+
 function indiegalaSync() {
     var statusEl = document.getElementById('indiegala-manage-status-main');
     if (statusEl) statusEl.textContent = 'Starting sync…';

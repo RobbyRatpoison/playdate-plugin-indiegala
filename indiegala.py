@@ -585,82 +585,18 @@ def _open_browser(url):
         log.warning(f'IndieGala: failed to open browser: {e}')
 
 
-_SKIP_EXE_PREFIXES = ('setup', 'install', 'unins', 'uninst', 'redist')
-_HELPER_EXE_NAMES  = {
-    'unitycrashhandler64', 'unitycrashhandler32', 'unitycrashhandler', 'unityplayer',
-    'dxsetup', 'dxwebsetup', 'vcredist_x64', 'vcredist_x86', 'vc_redist.x64', 'vc_redist.x86',
-    'dotnetfx', 'dotnet',
-}
-
-
-def _is_elf(path):
-    try:
-        with open(path, 'rb') as f:
-            return f.read(4) == b'\x7fELF'
-    except Exception:
-        return False
-
-
-def _is_macho(path):
-    try:
-        with open(path, 'rb') as f:
-            magic = f.read(4)
-            return magic in (b'\xfe\xed\xfa\xce', b'\xfe\xed\xfa\xcf',
-                             b'\xce\xfa\xed\xfe', b'\xcf\xfa\xed\xfe',
-                             b'\xca\xfe\xba\xbe')
-    except Exception:
-        return False
-
-
-def _find_executable(game_dir):
-    is_windows = sys.platform == 'win32'
-    is_mac     = sys.platform == 'darwin'
-
-    if is_mac:
-        for entry in os.listdir(game_dir):
-            if entry.endswith('.app'):
-                app_path = os.path.join(game_dir, entry)
-                if os.path.isdir(app_path):
-                    macos_dir = os.path.join(app_path, 'Contents', 'MacOS')
-                    if os.path.isdir(macos_dir):
-                        for candidate in os.listdir(macos_dir):
-                            inner = os.path.join(macos_dir, candidate)
-                            if os.path.isfile(inner) and os.access(inner, os.X_OK):
-                                return inner, False
-                    return app_path, False
-
-    appimages, natives, scripts, winexes = [], [], [], []
-    for dirpath, dirs, filenames in os.walk(game_dir):
-        dirs[:] = [d for d in dirs if not d.startswith('.')]
-        for fname in filenames:
-            if fname.startswith('.'):
-                continue
-            fpath = os.path.join(dirpath, fname)
-            ext   = os.path.splitext(fname)[1].lower()
-            stem  = os.path.splitext(fname.lower())[0]
-            depth = fpath.count(os.sep)
-
-            if ext == '.appimage':
-                appimages.append((depth, fpath))
-            elif ext in ('.x86_64', '.x86', '.amd64', '.arm64', '.linux'):
-                natives.append((depth, fpath))
-            elif ext == '.sh' and not is_windows:
-                scripts.append((depth, fpath))
-            elif not ext and not is_windows and (_is_elf(fpath) or (is_mac and _is_macho(fpath))):
-                natives.append((depth, fpath))
-            elif ext == '.exe':
-                if any(stem.startswith(p) for p in _SKIP_EXE_PREFIXES):
-                    continue
-                if stem in _HELPER_EXE_NAMES:
-                    continue
-                winexes.append((depth, fpath))
-
-    for group in (appimages, natives, scripts):
-        if group:
-            return sorted(group)[0][1], False
-    if winexes:
-        return sorted(winexes)[0][1], True
-    return None, False
+def _find_executable(game_dir, want_candidates=False):
+    """Best-guess launchable file via the shared runners.native_exe scanner.
+    Returns (absolute_path, is_windows_exe) normally; with
+    want_candidates=True, returns (absolute_path, is_windows_exe, ambiguous,
+    candidates) -- ambiguous=True when the winner is only a guess among
+    several equally-plausible options (see native_exe.pick_executable)."""
+    from runners.native_exe import pick_executable
+    picked  = pick_executable(game_dir)
+    abs_path = os.path.join(game_dir, picked['path']) if picked['path'] else None
+    if want_candidates:
+        return abs_path, picked['is_windows'], picked['ambiguous'], picked['candidates']
+    return abs_path, picked['is_windows']
 
 
 def _open_folder(path):
@@ -737,9 +673,15 @@ def launch_game(appid):
             exe_abs = cached_abs
             is_win  = cached.lower().endswith('.exe')
         else:
-            exe_abs, is_win = _find_executable(game_dir)
+            exe_abs, is_win, ambiguous, candidates = _find_executable(game_dir, want_candidates=True)
             if exe_abs:
                 update_game_data(appid, platform_executable=os.path.relpath(exe_abs, game_dir))
+                # Best guess is cached above so nothing regresses if the
+                # prompt is ignored -- this only ever offers a correction,
+                # never blocks the launch that triggered it.
+                if ambiguous:
+                    return {'status': 'needs_executable_pick', 'appid': appid,
+                            'candidates': candidates}
 
         if not exe_abs:
             _open_folder(game_dir)
