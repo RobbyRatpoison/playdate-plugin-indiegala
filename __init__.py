@@ -45,6 +45,12 @@ class IndieGalaPlugin:
         from .indiegala import rescrape
         return rescrape(appid)
 
+    art_kinds = ('vertical',)   # the library page gives one cover image
+
+    def art_urls(self, appid):
+        from .indiegala import art_urls
+        return art_urls(appid)
+
     def js_api(self):
         return {
             'uninstall_url':  '/api/indiegala/uninstall/{appid}',

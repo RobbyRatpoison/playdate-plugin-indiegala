@@ -523,6 +523,31 @@ def _fetch_full_library():
     return games_by_id
 
 
+def _cached_library_game(prod_id):
+    """One game's entry from the IndieGala library page, reusing a short-lived
+    cache of the whole (login-gated) scrape so a bulk rescrape fetches it once."""
+    with _rescrape_lock:
+        if time.time() - _rescrape_cache['ts'] > _RESCRAPE_CACHE_TTL:
+            _rescrape_cache['games'] = _fetch_full_library()
+            _rescrape_cache['ts']    = time.time()
+        return _rescrape_cache['games'].get(prod_id)
+
+
+def art_urls(appid):
+    """IndieGala's own cover for core's Artwork Sources "Store" option:
+    {'vertical': url} (the one image the library page gives, which the sync
+    saves as the vertical art) or {} if the library can't be reached."""
+    db  = get_db()
+    row = db.execute(
+        "SELECT platform_id FROM games WHERE appid=? AND platform='indiegala'", (appid,)
+    ).fetchone()
+    db.close()
+    if not row or not row['platform_id']:
+        return {}
+    game = _cached_library_game(row['platform_id'])
+    return {'vertical': game['img_url']} if game and game.get('img_url') else {}
+
+
 def rescrape(appid):
     """
     Re-fetch store/showcase links for a single IndieGala game.
@@ -538,12 +563,7 @@ def rescrape(appid):
         return None
     prod_id = row['platform_id']
 
-    with _rescrape_lock:
-        if time.time() - _rescrape_cache['ts'] > _RESCRAPE_CACHE_TTL:
-            _rescrape_cache['games'] = _fetch_full_library()
-            _rescrape_cache['ts']    = time.time()
-        game = _rescrape_cache['games'].get(prod_id)
-
+    game = _cached_library_game(prod_id)
     if not game:
         return None
 
