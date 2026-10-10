@@ -86,6 +86,24 @@ def connect(cookie):
     return True, 'Connected'
 
 
+def check_connection():
+    """True if IndieGala still accepts the stored session cookie, False if it was
+    rejected (login page), None if we couldn't tell."""
+    cookie = _cfg().get('session_cookie')
+    if not cookie:
+        return False
+    try:
+        resp = requests.get(LIBRARY_URL, headers=_headers(cookie), timeout=15,
+                            allow_redirects=True)
+    except requests.RequestException:
+        return None
+    if resp.status_code != 200:
+        return None
+    if '/login' in resp.url or 'profile-private-page-library' not in resp.text:
+        return False
+    return True
+
+
 def disconnect():
     cfg = load_config() or {}
     cfg.pop('indiegala', None)
