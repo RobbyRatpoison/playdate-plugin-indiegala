@@ -101,7 +101,20 @@ def scrape_single(appid):
         return jsonify({'status': 'error', 'message': 'Could not find this game in your IndieGala library'}), 502
 
     update_game_data(appid, **meta)
-    return jsonify({'status': 'success', 'data': meta})
+
+    # The purchase date too (an explicit sync of this one game, so overwriting is expected).
+    data_out = dict(meta)
+    try:
+        from .indiegala import fetch_dates_for_appids
+        from database import ts_to_date
+        ts = fetch_dates_for_appids([appid]).get(appid)
+        if ts:
+            update_game_data(appid, date_added=ts)
+            data_out['date_added'] = ts_to_date(ts) or ''
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f'IndieGala scrape-single: purchase date for {appid} failed: {e}')
+    return jsonify({'status': 'success', 'data': data_out})
 
 
 @bp.route('/executable-candidates/<int:appid>')

@@ -1,8 +1,8 @@
 {
     "id": "indiegala",
     "name": "IndieGala",
-    "version": "2026.10.1",
-    "min_core_version": "1.7.3",
+    "version": "2026.10.2",
+    "min_core_version": "2026.10.5",
     "platform": "indiegala",
     "author": "RobbyRatpoison",
     "source": "github:RobbyRatpoison/playdate-plugin-indiegala",
@@ -10,7 +10,7 @@
         "required": false
     },
     "release_note": {
-        "version": "2026.10.1",
-        "text": "The plugin card shows Connect again when IndieGala rejects your session."
+        "version": "2026.10.2",
+        "text": "Sync IndieGala Data in the edit window also fetches the purchase date."
     }
 }
