@@ -9,6 +9,17 @@ class IndieGalaPlugin:
     platform = 'indiegala'
     label    = 'IndieGala'
 
+    def sync(self):
+        from .indiegala import start_library_sync
+        return start_library_sync()
+
+    def sync_status(self):
+        """Outcome of the last library sync, for core's startup sync (see PLUGINS.md)."""
+        from .indiegala import get_sync_state, is_connected
+        st = get_sync_state()
+        return {'running': bool(st.get('running')), 'error': st.get('error'),
+                'connected': bool(is_connected())}
+
     def register(self, app):
         from .routes import bp
         app.register_blueprint(bp)
